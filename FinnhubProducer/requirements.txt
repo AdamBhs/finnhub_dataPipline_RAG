@@ -1,0 +1,9 @@
+certifi==2026.7.22
+charset-normalizer==3.5.1
+finnhub-python==2.4.29
+idna==3.19
+kafka-python==3.0.11
+requests==2.34.2
+avro-python3==1.10.2
+urllib3==2.7.0
+websocket-client==1.4.2
