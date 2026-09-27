@@ -5,7 +5,7 @@ variable "kube_config" {
 
 variable "namespace" {
     type = string
-    default = "pipline"
+    default = "pipeline"
 }
 
 variable "finnhub_stocks_tickers" {

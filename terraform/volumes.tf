@@ -2,7 +2,7 @@ resource "kubernetes_persistent_volume" "cassandra-db-volume" {
     metadata {
         name = "cassandra-db-volume"
     }
-    depends_on = [ kubernetes_namespace.pipline-namespace ]
+    depends_on = [ kubernetes_namespace.pipeline-namespace ]
 
     spec {
         capacity = {
@@ -28,7 +28,7 @@ resource "kubernetes_persistent_volume_claim" "cassandra-db-volume" {
         }
     }
   
-    depends_on = [ kubernetes_namespace.pipline-namespace ]
+    depends_on = [ kubernetes_namespace.pipeline-namespace ]
 
     spec {
         access_modes = ["ReadWriteMany"]

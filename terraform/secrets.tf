@@ -1,4 +1,4 @@
-resource "kubernetes_secret" "pipline-secrets" {
+resource "kubernetes_secret" "pipeline-secrets" {
   metadata {
     name = "pipeline-secrets"
     namespace = var.namespace

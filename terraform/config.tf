@@ -2,7 +2,7 @@
 //Optional TO DO: Network policy is most likely unnecessary at this point. Verify that and if that's the case - delete it and related labels from deployments
 //Optional TO DO: apply poddisruptionbudget
 
-resource "kubernetes_namespace" "pipline-namespace" {
+resource "kubernetes_namespace" "pipeline-namespace" {
 
     metadata {
       name = var.namespace
@@ -10,14 +10,14 @@ resource "kubernetes_namespace" "pipline-namespace" {
   
 }
 
-resource "kubernetes_config_map" "pipline-config" {
+resource "kubernetes_config_map" "pipeline-config" {
     metadata {
       name      = "pipline-config"
       namespace = var.namespace
     }
   
     depends_on = [ 
-        kubernetes_namespace.pipline-namespace
+        kubernetes_namespace.pipeline-namespace
     ]
 
     data = {
@@ -43,7 +43,7 @@ resource "kubernetes_network_policy" "pipeline_network" {
         namespace = var.namespace
     }
     
-    depends_on = [ kubernetes_namespace.pipline-namespace ]
+    depends_on = [ kubernetes_namespace.pipeline-namespace ]
 
     spec {
         pod_selector {
