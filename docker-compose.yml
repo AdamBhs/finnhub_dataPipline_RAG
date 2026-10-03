@@ -23,6 +23,11 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
 
+# NOTE : This combines Apache Kafka 4.1.1 with Confluent Schema Registry 8.1.1.
+# If the registry fails to initialize against this Kafka version,
+# we'll inspect its logs and choose a compatible configuration 
+# rather than proceeding with a broken service.
+
   schema-registry:
     image: confluentinc/cp-schema-registry:8.1.1
     container_name: schema-registry
