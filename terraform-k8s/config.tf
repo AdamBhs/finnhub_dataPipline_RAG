@@ -36,3 +36,16 @@ resource "kubernetes_config_map" "kafdrop_config" {
     SERVER_PORT         = "9000"
   }
 }
+
+resource "kubernetes_config_map" "schema_registry_config" {
+  metadata {
+    name      = "schema-registry-config"
+    namespace = kubernetes_namespace.pipeline.metadata[0].name
+  }
+
+  data = {
+    SCHEMA_REGISTRY_HOST_NAME                    = "schema-registry"
+    SCHEMA_REGISTRY_LISTENERS                    = "http://0.0.0.0:8081"
+    SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS = "PLAINTEXT://kafka:9092"
+  }
+}
