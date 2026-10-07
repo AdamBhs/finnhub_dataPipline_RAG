@@ -1,69 +1,84 @@
+import os
 from confluent_kafka import Consumer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 from confluent_kafka.serialization import MessageField, SerializationContext
 
 
-TOPIC = "stock-prices-avro"
+class FinnhubKafkaConsumer:
+    def __init__(
+        self,
+        topic,
+        group_id,
+        bootstrap_servers="localhost:9092",
+        schema_registry_url="http://localhost:8081",
+    ):
+        self.topic = topic
 
-
-schema_registry = SchemaRegistryClient({
-    "url": "http://localhost:8081"
-})
-
-avro_deserializer = AvroDeserializer(
-    schema_registry
-)
-
-
-consumer = Consumer({
-    "bootstrap.servers": "localhost:9092",
-    "group.id": "finnhub-consumer-group",
-    "auto.offset.reset": "earliest"
-})
-
-consumer.subscribe([TOPIC])
-
-print("Waiting for Finnhub trade events...")
-
-try:
-    while True:
-
-        message = consumer.poll(1.0)
-
-        if message is None:
-            continue
-
-        if message.error():
-            print(f"Kafka error: {message.error()}")
-            continue
-
-        event = avro_deserializer(
-            message.value(),
-            SerializationContext(
-                message.topic(),
-                MessageField.VALUE
-            )
+        schema_registry = SchemaRegistryClient(
+            {"url": schema_registry_url}
         )
-        print(event)
 
-        # print(
-        #     f"Received | "
-        #     f"type={event['type']} | "
-        #     f"trades={len(event['data'])}"
-        # )
+        self.avro_deserializer = AvroDeserializer(
+            schema_registry
+        )
 
-        for trade in event["data"]:
-            print(
-                f"  symbol={trade['s']} "
-                f"price={trade['p']} "
-                f"volume={trade['v']} "
-                f"timestamp={trade['t']} "
-                f"conditions={trade['c']}"
-            )
+        self.consumer = Consumer({
+            "bootstrap.servers": bootstrap_servers,
+            "group.id": group_id,
+            "auto.offset.reset": "earliest",
+        })
 
-except KeyboardInterrupt:
-    print("\nStopping consumer...")
+        self.consumer.subscribe([topic])
 
-finally:
-    consumer.close()
+    def run(self):
+        print(f"Listening to topic: {self.topic}")
+
+        try:
+            while True:
+                message = self.consumer.poll(1.0)
+
+                if message is None:
+                    continue
+
+                if message.error():
+                    print(f"Kafka error: {message.error()}")
+                    continue
+
+                data = self.avro_deserializer(
+                    message.value(),
+                    SerializationContext(
+                        message.topic(),
+                        MessageField.VALUE,
+                    ),
+                )
+
+                print(
+                    f"Received message | "
+                    f"partition={message.partition()} | "
+                    f"offset={message.offset()} | "
+                    f"data={data}"
+                )
+
+        except KeyboardInterrupt:
+            print("Consumer stopped.")
+
+        finally:
+            self.consumer.close()
+
+
+if __name__ == "__main__":
+    consumer = FinnhubKafkaConsumer(
+        topic="stock-prices-avro",
+        group_id="finnhub-consumer-group",
+        bootstrap_servers=os.getenv(
+            "KAFKA_BOOTSTRAP_SERVERS",
+            "localhost:9092",
+        ),
+        schema_registry_url=os.getenv(
+            "SCHEMA_REGISTRY_URL",
+            "http://localhost:8081",
+        ),
+    )
+
+    consumer.run()

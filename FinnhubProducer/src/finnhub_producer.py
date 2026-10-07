@@ -37,7 +37,7 @@ class FinnhubKafkaProducer:
         self.avro_serializer = AvroSerializer(
             self.schema_registry,
             schema_str,
-            conf={"auto.register.schemas": False},
+            conf={"auto.register.schemas": True},
         )
 
         # Kafka producer
@@ -131,12 +131,21 @@ class FinnhubKafkaProducer:
 
 
 if __name__ == "__main__":
-    ROOT_DIR = Path(__file__).resolve().parents[2]
+    ROOT_DIR = Path(__file__).resolve().parents[1]
 
     app = FinnhubKafkaProducer(
-        token=os.getenv("FINNHUB_TOKEN"),
+        token=os.environ["FINNHUB_TOKEN"],
         symbols=["BINANCE:BTCUSDT"],
         topic="stock-prices-avro",
         schema_path=ROOT_DIR / "schemas" / "stock-price.avsc",
+        bootstrap_servers=os.getenv(
+            "KAFKA_BOOTSTRAP_SERVERS",
+            "localhost:9092",
+        ),
+        schema_registry_url=os.getenv(
+            "SCHEMA_REGISTRY_URL",
+            "http://localhost:8081",
+        ),
     )
+
     app.run()

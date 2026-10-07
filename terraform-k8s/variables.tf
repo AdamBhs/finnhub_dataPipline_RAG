@@ -16,3 +16,9 @@ variable "namespace" {
   type        = string
   default     = "finnhub-pipeline"
 }
+
+variable "finnhub_token" {
+  description = "Finnhub API token"
+  type        = string
+  sensitive   = true
+}
