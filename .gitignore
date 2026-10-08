@@ -5,3 +5,9 @@ terraform-k8s/terraform.tfstate
 terraform-k8s/terraform.tfstate.backup
 terraform-k8s/.terraform.lock.hcl
 terraform-k8s/terraform.tfvars
+PYSPARK_AVRO_DEBUG.md
+StreamProcessor/target
+StreamProcessorPython/output/
+StreamProcessorPython/__pycache__/
+StreamProcessorPython/stream_processor/__pycache__/
+StreamProcessorPython/tests/__pycache__/
