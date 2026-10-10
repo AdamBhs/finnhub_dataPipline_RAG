@@ -1,9 +1,0 @@
-.git
-.gitignore
-__pycache__/
-**/__pycache__/
-*.py[cod]
-output/
-tests/
-examples/
-README.md

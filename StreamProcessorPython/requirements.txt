@@ -1,2 +1,0 @@
-# Same Confluent Avro/Schema Registry client used by FinnhubProducer.
-confluent-kafka[avro,schemaregistry]
