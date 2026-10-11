@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-
+import time #For delay the websockets
 import websocket
 from confluent_kafka import Producer
 from confluent_kafka.schema_registry import SchemaRegistryClient
@@ -13,7 +13,7 @@ class FinnhubKafkaProducer:
     """Reads trades from the Finnhub websocket and publishes them to Kafka as Avro."""
 
     FINNHUB_URL = "wss://ws.finnhub.io"
-
+    SEND_DELAY_SECONDS = 5 # 5 sec Delay bettwen each send socket 
     def __init__(
         self,
         token,
@@ -105,6 +105,9 @@ class FinnhubKafkaProducer:
 
             # Serve delivery callbacks.
             self.producer.poll(0)
+
+            # wait 5 Seconds before handling the next message.
+            # time.sleep(self.SEND_DELAY_SECONDS)
 
         except Exception as error:
             print(f"Processing error: {error}")
