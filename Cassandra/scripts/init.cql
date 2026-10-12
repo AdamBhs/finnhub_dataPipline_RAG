@@ -1,4 +1,3 @@
-```sql
 CREATE KEYSPACE IF NOT EXISTS finnhub
 WITH replication = {
     'class': 'SimpleStrategy',
@@ -26,4 +25,3 @@ CREATE TABLE IF NOT EXISTS aggregations_by_symbol (
     total_volume DOUBLE,
     PRIMARY KEY (symbol, window_start)
 ) WITH CLUSTERING ORDER BY (window_start DESC);
-```

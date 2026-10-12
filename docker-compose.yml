@@ -67,6 +67,20 @@ services:
     volumes:
       - cassandra_data:/var/lib/cassandra
 
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_INSTALL_PLUGINS: hadesarchitect-cassandra-datasource
+    depends_on:
+      - cassandra
+    volumes:
+      - grafana_data:/var/lib/grafana
+
 volumes:
   kafka_data:
   cassandra_data:
+  grafana_data:
