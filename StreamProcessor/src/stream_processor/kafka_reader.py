@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 from pyspark.sql import SparkSession
@@ -18,6 +19,15 @@ from stream_processor.cassandra_writer import write_aggregations
 def main():
     project_root = Path(__file__).resolve().parents[3]
     schema_path = project_root / "schemas" / "stock-price.avsc"
+    kafka_bootstrap_servers = os.getenv(
+        "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
+    )
+    checkpoint_dir = Path(
+        os.getenv(
+            "SPARK_CHECKPOINT_DIR",
+            str(project_root / "StreamProcessor" / "checkpoints" / "query2"),
+        )
+    )
 
     with schema_path.open("r", encoding="utf-8") as schema_file:
         avro_schema = json.dumps(json.load(schema_file))
@@ -33,11 +43,13 @@ def main():
 
     print(f"Spark version: {spark.version}")
     print(f"Loading Avro schema from: {schema_path}")
+    print(f"Kafka bootstrap servers: {kafka_bootstrap_servers}")
+    print(f"Aggregation checkpoint directory: {checkpoint_dir}")
 
     kafka_df = (
         spark.readStream
         .format("kafka")
-        .option("kafka.bootstrap.servers", "localhost:9092")
+        .option("kafka.bootstrap.servers", kafka_bootstrap_servers)
         .option("subscribe", "stock-prices-avro")
         .option("startingOffsets", "earliest")
         .load()
@@ -102,7 +114,7 @@ def main():
         .outputMode("append")
         .option(
             "checkpointLocation",
-            str(project_root / "StreamProcessor" / "checkpoints" / "query2"),
+            str(checkpoint_dir),
         )
         .trigger(processingTime="5 seconds")
         .start()

@@ -1,0 +1,11 @@
+.git
+.venv
+.vscode
+.metals
+StreamProcessor/checkpoints
+StreamProcessor/target
+StreamProcessor/src/stream_processor/__pycache__
+terraform-k8s/.terraform
+terraform-k8s/terraform.tfstate
+terraform-k8s/terraform.tfstate.backup
+terraform-k8s/terraform.tfvars

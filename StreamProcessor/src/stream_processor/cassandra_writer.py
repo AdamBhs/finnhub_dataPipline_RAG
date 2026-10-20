@@ -1,4 +1,4 @@
-
+import os
 from cassandra.cluster import Cluster
 
 
@@ -6,8 +6,11 @@ def write_aggregations(batch_df, batch_id):
     if batch_df.isEmpty():
         return
 
+    contact_points = os.getenv("CASSANDRA_CONTACT_POINTS", "localhost").split(",")
+    cassandra_port = int(os.getenv("CASSANDRA_PORT", "9042"))
+
     def write_partition(rows):
-        cluster = Cluster(["localhost"], port=9042)
+        cluster = Cluster(contact_points, port=cassandra_port)
 
         try:
             session = cluster.connect("finnhub")

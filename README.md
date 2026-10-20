@@ -150,7 +150,7 @@ Important deployment implication: both the Spark reader and writer hard-code `lo
 
 ## Local infrastructure: `docker-compose.yml`
 
-The Compose file currently starts infrastructure only; it does **not** start the producer or Spark processor.
+The Compose file starts the shared infrastructure and the containerized Spark processor. It does **not** start the Finnhub producer because the producer needs the user's `FINNHUB_TOKEN` and is still run separately.
 
 | Service | Image/build | Host port | Internal address |
 | --- | --- | ---: | --- |
@@ -159,6 +159,7 @@ The Compose file currently starts infrastructure only; it does **not** start the
 | Kafdrop | `obsidiandynamics/kafdrop:latest` | 9000 | `kafdrop:9000` |
 | Cassandra | `cassandra:5.0` | 9042 | `cassandra:9042` |
 | Grafana | local `grafana/Dockerfile` | 3000 | `grafana:3000` |
+| Stream processor | local `StreamProcessor/Dockerfile` | none | internal only |
 
 Kafka exposes `localhost:9092` to host programs and advertises `kafka:19092` to other Compose services. It uses three partitions and single-replica internal topics. Compose volumes are `kafka_data`, `cassandra_data`, and `grafana_data`. For the exact clean-start sequence, follow the next section.
 
@@ -230,7 +231,38 @@ export PYTHONPATH="$PWD/StreamProcessor/src"
 spark-submit StreamProcessor/src/stream_processor/kafka_reader.py
 ```
 
-The exact `spark-submit --packages ...` coordinates must match the installed Spark/Scala version; they are not pinned in this repository. Do not silently substitute arbitrary versions.
+For a manual local `spark-submit`, use connector coordinates matching the installed Spark/Scala version. The Compose processor image pins Spark/PySpark and its connector coordinates independently.
+
+### Running the Stream Processor with Docker Compose
+
+The Compose `stream-processor` service replaces the manual local `spark-submit` process. Its image uses Python 3.12, Java 21, PySpark 4.2.0, and the Cassandra driver. At startup, `spark-submit` resolves Spark 4.2.0's Kafka (`spark-sql-kafka-0-10_2.13`) and Avro (`spark-avro_2.13`) connectors.
+
+The container receives these internal-network settings from Compose:
+
+| Variable | Container value | Why |
+| --- | --- | --- |
+| `KAFKA_BOOTSTRAP_SERVERS` | `kafka:19092` | Kafka's Compose-network listener |
+| `CASSANDRA_CONTACT_POINTS` | `cassandra` | Compose service DNS name |
+| `CASSANDRA_PORT` | `9042` | Cassandra native transport port |
+| `SPARK_CHECKPOINT_DIR` | `/app/StreamProcessor/checkpoints/query2` | Persistent processor checkpoint path |
+
+Build and start it with the rest of the stack:
+
+```bash
+docker compose up -d --build
+docker compose logs -f stream-processor
+```
+
+Its checkpoint data is kept in the named `stream_processor_checkpoints` volume, not in the source tree. This avoids committing generated state and keeps `StreamProcessor/checkpoints/*` ignored. The service has `restart: unless-stopped`, so it retries after an early Kafka/Cassandra startup failure; inspect the logs if it repeatedly restarts.
+
+To rebuild only this service after modifying processor code, its Dockerfile, requirements, or its schema:
+
+```bash
+docker compose up -d --build stream-processor
+docker compose logs --tail=200 stream-processor
+```
+
+Use either the containerized processor **or** the manual local `spark-submit` command, never both at the same time. Running both makes two independent Spark consumers write the same aggregation windows into Cassandra.
 
 Useful URLs after Compose starts:
 
@@ -352,7 +384,7 @@ terraform apply -var='finnhub_token=replace-with-your-token'
 ## Known limitations and next practical checks
 
 1. Verify the currently implemented native Spark `from_avro` path against real producer messages. The historical manual `fastavro` UDF error should not be reintroduced unless diagnosing a specific regression.
-2. Make the local Spark runtime reproducible: pin PySpark, Kafka connector, Avro connector, Java, and all Python dependencies. `StreamProcessor/requirements.txt` currently lists only `cassandra-driver==3.30.1`.
+2. The Compose processor image pins Python, Java, PySpark, and Spark connector versions; apply an equivalent pinned setup if the manual host-based `spark-submit` workflow must remain supported.
 3. Ensure Cassandra initialization is automated or clearly run via `cqlsh`; the existing Compose configuration does not use `Cassandra/Dockerfile`.
 4. Add health checks/readiness handling before applications start, particularly Kafka, Schema Registry, and Cassandra.
 5. Parameterize Kafka/Cassandra hostnames and ports for host, Compose, and Kubernetes execution instead of relying on `localhost`.

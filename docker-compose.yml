@@ -82,7 +82,25 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
 
+  stream-processor:
+    build:
+      context: .
+      dockerfile: StreamProcessor/Dockerfile
+    container_name: stream-processor
+    depends_on:
+      - kafka
+      - cassandra
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      CASSANDRA_CONTACT_POINTS: cassandra
+      CASSANDRA_PORT: 9042
+      SPARK_CHECKPOINT_DIR: /app/StreamProcessor/checkpoints/query2
+    volumes:
+      - stream_processor_checkpoints:/app/StreamProcessor/checkpoints
+
 volumes:
   kafka_data:
   cassandra_data:
   grafana_data:
+  stream_processor_checkpoints:
