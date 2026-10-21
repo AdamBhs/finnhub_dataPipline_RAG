@@ -1,4 +1,3 @@
-
 services:
   kafka:
     image: apache/kafka:4.1.1
@@ -23,10 +22,10 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
 
-# NOTE : This combines Apache Kafka 4.1.1 with Confluent Schema Registry 8.1.1.
-# If the registry fails to initialize against this Kafka version,
-# we'll inspect its logs and choose a compatible configuration 
-# rather than proceeding with a broken service.
+  # NOTE : This combines Apache Kafka 4.1.1 with Confluent Schema Registry 8.1.1.
+  # If the registry fails to initialize against this Kafka version,
+  # we'll inspect its logs and choose a compatible configuration
+  # rather than proceeding with a broken service.
 
   schema-registry:
     image: confluentinc/cp-schema-registry:8.1.1
@@ -49,7 +48,7 @@ services:
       - "9000:9000"
     environment:
       KAFKA_BROKERCONNECT: kafka:19092
-  
+
   cassandra:
     image: cassandra:5.0
     container_name: cassandra
@@ -67,7 +66,6 @@ services:
     volumes:
       - cassandra_data:/var/lib/cassandra
 
-
   grafana:
     build:
       context: ./grafana
@@ -82,14 +80,34 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
 
+  kafka-init:
+    image: apache/kafka:4.1.1
+    container_name: kafka-init
+    depends_on:
+      - kafka
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:19092 --list >/dev/null 2>&1; do
+          echo "Waiting for Kafka..."
+          sleep 2
+        done
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:19092 --create --if-not-exists --topic stock-prices-avro --partitions 3 --replication-factor 1
+        echo "Kafka topic is ready."
+    restart: "no"
+
   stream-processor:
     build:
       context: .
       dockerfile: StreamProcessor/Dockerfile
     container_name: stream-processor
     depends_on:
-      - kafka
-      - cassandra
+      kafka:
+        condition: service_started
+      cassandra-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
@@ -98,6 +116,42 @@ services:
       SPARK_CHECKPOINT_DIR: /app/StreamProcessor/checkpoints/query2
     volumes:
       - stream_processor_checkpoints:/app/StreamProcessor/checkpoints
+  finnhub-producer:
+    build:
+      context: .
+      dockerfile: FinnhubProducer/Dockerfile
+    container_name: finnhub-producer
+    depends_on:
+      kafka:
+        condition: service_started
+      schema-registry:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  cassandra-init:
+    image: cassandra:5.0
+    container_name: cassandra-init
+    depends_on:
+      - cassandra
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        until cqlsh cassandra -e "DESCRIBE KEYSPACES" >/dev/null 2>&1; do
+          echo "Waiting for Cassandra..."
+          sleep 5
+        done
+        cqlsh cassandra -f /scripts/init.cql
+        echo "Cassandra schema is ready."
+    volumes:
+      - ./Cassandra/scripts/init.cql:/scripts/init.cql:ro
+    restart: "no"
 
 volumes:
   kafka_data:

@@ -11,6 +11,8 @@ RUN apt-get update \
 
 WORKDIR /app
 
+ENV PYTHONPATH=/app/StreamProcessor/src
+
 COPY StreamProcessor/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 

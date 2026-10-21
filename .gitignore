@@ -8,3 +8,5 @@ terraform-k8s/terraform.tfvars
 PYSPARK_AVRO_DEBUG.md
 StreamProcessor/target
 StreamProcessor/checkpoints/*
+.env
+how_to_run.txt
