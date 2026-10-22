@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
     app = FinnhubKafkaProducer(
         token=os.environ["FINNHUB_TOKEN"],
-        symbols=["BINANCE:BTCUSDT"],
+        symbols=["BINANCE:BTCUSDT", "OANDA:EUR_USD", "NVDA", "TSLA","GOOGL", "BINANCE:ETHUSDT"],
         topic="stock-prices-avro",
         schema_path=ROOT_DIR / "schemas" / "stock-price.avsc",
         bootstrap_servers=os.getenv(
