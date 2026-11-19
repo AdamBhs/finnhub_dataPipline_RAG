@@ -1,74 +1,136 @@
+import axios from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { http } from "@/lib/http";
 import { uid } from "@/lib/uid";
-import { MODELS, type ModelId } from "./models";
+import type { ModelId } from "./models";
 import type { Attachment, ChatMessage } from "./types";
 
-function mockReply(
-  text: string,
-  files: Attachment[],
-  modelId: ModelId,
-): string {
-  const model = MODELS.find((m) => m.id === modelId)?.label ?? modelId;
-  const asked = text ? `\n\nYou asked: "${text}"` : "";
-  const received = files.length
-    ? `\n\nI received ${files.length} file(s): ${files.map((f) => f.file.name).join(", ")}.`
-    : "";
-  return `(${model}) The backend isn't connected yet, so this is a placeholder answer.${asked}${received}`;
+type AgentResponse = {
+  answer: string;
+};
+
+const CHAT_STORAGE_KEY = "finnhub-chat-history";
+
+function loadMessages(): ChatMessage[] {
+  try {
+    const stored = localStorage.getItem(CHAT_STORAGE_KEY);
+
+    if (!stored) {
+      return [];
+    }
+
+    const messages: unknown = JSON.parse(stored);
+
+    if (!Array.isArray(messages)) {
+      return [];
+    }
+
+    return messages.filter(
+      (message): message is ChatMessage =>
+        typeof message === "object" &&
+        message !== null &&
+        "id" in message &&
+        "role" in message &&
+        "text" in message &&
+        (message.role === "user" || message.role === "ai") &&
+        typeof message.id === "string" &&
+        typeof message.text === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(messages: ChatMessage[]) {
+  try {
+    const completedMessages = messages
+      .filter((message) => !message.streaming)
+      .map((message) => ({
+        ...message,
+        files: message.files.map((file) => ({ ...file, previewUrl: null })),
+      }));
+
+    if (completedMessages.length === 0) {
+      localStorage.removeItem(CHAT_STORAGE_KEY);
+      return;
+    }
+
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(completedMessages));
+  } catch {
+    // Chat still works when browser storage is unavailable.
+  }
 }
 
 function revokePreviews(messages: ChatMessage[]) {
-  messages.forEach((m) =>
-    m.files.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl)),
+  messages.forEach((message) =>
+    message.files.forEach(
+      (file) => file.previewUrl && URL.revokeObjectURL(file.previewUrl),
+    ),
   );
 }
 
+function errorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const responseError = error.response?.data?.error;
+
+    if (typeof responseError === "string") {
+      return responseError;
+    }
+
+    if (error.code === "ECONNABORTED") {
+      return "The request took too long. Please try again.";
+    }
+  }
+
+  return "Unable to reach the market assistant. Please try again.";
+}
+
 export function useChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
   const [busy, setBusy] = useState(false);
-  const timeoutRef = useRef<number | undefined>(undefined);
-  const intervalRef = useRef<number | undefined>(undefined);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
 
   useEffect(() => {
     messagesRef.current = messages;
+    saveMessages(messages);
   }, [messages]);
-
-  const cancelTimers = useCallback(() => {
-    window.clearTimeout(timeoutRef.current);
-    window.clearInterval(intervalRef.current);
-  }, []);
 
   useEffect(
     () => () => {
-      cancelTimers();
+      abortControllerRef.current?.abort();
       revokePreviews(messagesRef.current);
     },
-    [cancelTimers],
+    [],
   );
 
   const stop = useCallback(() => {
-    cancelTimers();
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     setBusy(false);
-    setMessages((prev) =>
-      prev
-        .map((m) => (m.streaming ? { ...m, streaming: false } : m))
-        .filter((m) => m.role !== "ai" || m.text !== ""),
+    setMessages((previous) =>
+      previous.filter((message) => message.role !== "ai" || message.text !== ""),
     );
-  }, [cancelTimers]);
+  }, []);
 
   const send = useCallback(
-    (text: string, files: Attachment[], modelId: ModelId) => {
+    async (text: string, files: Attachment[], modelId: ModelId) => {
+      if (!text) {
+        return;
+      }
+
       const aiId = uid();
-      const full = mockReply(text, files, modelId);
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       const userMessage: ChatMessage = {
         id: uid(),
         role: "user",
         text,
-        files: files.map((a) => ({
-          name: a.file.name,
-          size: a.file.size,
-          previewUrl: a.previewUrl,
+        files: files.map((attachment) => ({
+          name: attachment.file.name,
+          size: attachment.file.size,
+          previewUrl: attachment.previewUrl,
         })),
       };
       const aiMessage: ChatMessage = {
@@ -80,38 +142,53 @@ export function useChat() {
         streaming: true,
       };
 
-      setMessages((prev) => [...prev, userMessage, aiMessage]);
+      setMessages((previous) => [...previous, userMessage, aiMessage]);
       setBusy(true);
 
-      // Fake "thinking" delay, then stream the reply 2 characters at a time
-      timeoutRef.current = window.setTimeout(() => {
-        let i = 0;
-        intervalRef.current = window.setInterval(() => {
-          i = Math.min(i + 2, full.length);
-          const done = i >= full.length;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === aiId
-                ? { ...m, text: full.slice(0, i), streaming: !done }
-                : m,
-            ),
-          );
-          if (done) {
-            window.clearInterval(intervalRef.current);
-            setBusy(false);
-          }
-        }, 20);
-      }, 700);
+      try {
+        const response = await http.post<AgentResponse>(
+          "/api/agent/chat",
+          { prompt: text },
+          { signal: controller.signal },
+        );
+
+        setMessages((previous) =>
+          previous.map((message) =>
+            message.id === aiId
+              ? { ...message, text: response.data.answer, streaming: false }
+              : message,
+          ),
+        );
+      } catch (error) {
+        if (axios.isCancel(error)) {
+          return;
+        }
+
+        setMessages((previous) =>
+          previous.map((message) =>
+            message.id === aiId
+              ? { ...message, text: errorMessage(error), streaming: false }
+              : message,
+          ),
+        );
+      } finally {
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+          setBusy(false);
+        }
+      }
     },
     [],
   );
 
   const clear = useCallback(() => {
-    cancelTimers();
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     setBusy(false);
     revokePreviews(messagesRef.current);
+    localStorage.removeItem(CHAT_STORAGE_KEY);
     setMessages([]);
-  }, [cancelTimers]);
+  }, []);
 
   return { messages, busy, send, stop, clear };
 }

@@ -14,7 +14,10 @@ from pyspark.sql.functions import (
     window,
 )
 from pyspark.sql.avro.functions import from_avro
-from stream_processor.cassandra_writer import write_aggregations
+from stream_processor.cassandra_writer import (
+    write_trades,
+    write_aggregations,
+)
 
 def main():
     project_root = Path(__file__).resolve().parents[3]
@@ -100,9 +103,13 @@ def main():
     query1 = (
         output_df.writeStream
         .queryName("clean_trades")
-        .format("console")
+        .foreachBatch(write_trades)
         .outputMode("append")
-        .option("truncate", "false")
+        .option(
+            "checkpointLocation",
+            str(project_root / "StreamProcessor" / "checkpoints" / "query1"),
+        )
+        .trigger(processingTime="5 seconds")
         .start()
     )
 

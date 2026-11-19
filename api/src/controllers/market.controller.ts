@@ -9,7 +9,7 @@ export async function getMarketData(
   try {
     const symbol = req.params.symbol;
 
-    if (!symbol || !/^[A-Za-z0-9:_-]+$/.test(symbol)) {
+    if (typeof symbol !== 'string' || !/^[A-Za-z0-9:_-]+$/.test(symbol)) {
       res.status(400).json({
         error: "A valid market symbol is required",
       });
@@ -25,7 +25,7 @@ export async function getMarketData(
       [symbol],
       { prepare: true },
     );
-
+    
     res.json({
       symbol,
       count: result.rows.length,

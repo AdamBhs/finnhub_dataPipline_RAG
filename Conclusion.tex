@@ -1,0 +1,22 @@
+\chapter*{General Conclusion}
+\addcontentsline{toc}{chapter}{Conclusion}
+
+The \textbf{Finnhub Real-Time Market Monitoring Platform} made it possible to design and implement a local system for collecting, processing, storing, and visualizing live financial-market data. The solution combines a React interface, an Express REST API, Kafka, PySpark, Cassandra, Grafana, and an AI market assistant powered by Ollama. It provides a unified environment in which users can observe market activity, consult processed trade information, and interact with the available data through a modern web interface.
+
+Throughout the project, a modular event-driven architecture was implemented. Finnhub trade events are transmitted through Kafka, processed in short time windows by PySpark, stored in Cassandra, and displayed through Grafana and the web interface. Avro serialization and Schema Registry are used to maintain a consistent message format between the producer and the streaming processor.
+
+The project also demonstrates the usefulness of combining data engineering and web development in a single application. Docker Compose simplifies the execution of the local services, while Grafana provides direct visibility into the processed data. In addition, the Market Copilot feature offers a controlled conversational interface that can retrieve recent market aggregates and company news when answering financial-market questions.
+
+The implementation and validation phases confirmed the complete data flow, from the Finnhub WebSocket source to the visualization layer. The work also highlighted the importance of handling delayed stream events, synchronizing service startup, and validating data exchanged between the different components. These elements contribute to a reliable foundation for further development of the platform.
+
+In terms of future perspectives, several improvements can be considered in order to enhance the platform and extend its functionality, including:
+
+\begin{itemize}
+    \item connecting the React dashboard completely to live Cassandra data,
+    \item adding automated unit and integration tests,
+    \item monitoring more financial instruments and configurable alerts,
+    \item improving the AI assistant with additional verified data sources,
+    \item adding user authentication and personalized watchlists.
+\end{itemize}
+
+These improvements would strengthen the reliability and usefulness of the \textbf{Finnhub Real-Time Market Monitoring Platform} for financial-market observation. The project therefore provides a solid base for a more complete real-time decision-support platform in the future.

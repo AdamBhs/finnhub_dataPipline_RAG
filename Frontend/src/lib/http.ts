@@ -2,7 +2,7 @@ import axios from 'axios'
 
 /** Base URL for the backend API, configured via `.env` (see `.env.example`). */
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
 
 /**
  * Shared axios instance. All API calls should go through this client so the
@@ -10,7 +10,7 @@ export const API_BASE_URL =
  */
 export const http = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10_000,
+  timeout: 180_000,
   headers: {
     'Content-Type': 'application/json',
   },

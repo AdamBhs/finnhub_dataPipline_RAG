@@ -1,4 +1,3 @@
-
 import type { Request, Response } from "express";
 import { askQwen } from "../services/ollama.service.js";
 
